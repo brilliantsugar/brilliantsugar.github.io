@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta
+    name="description"
+    content=""
+  />
+  
+    
+      <title>How I Learned to Stop Worrying and Love Juggling C&#43;&#43; Atomics | brilliantsugar</title>
+    
+  
+  <link rel="stylesheet" href="/css/reset.css"/>
+  <link rel="stylesheet" href="/css/font.css"/>
+  <link rel="stylesheet" href="/css/smigle.css"/>
+  <link rel="stylesheet" href="/css/bs.css">
+  
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <link rel="mask-icon" href="/safari-pinned-tab.svg" color="#5bbad5">
+  <meta name="msapplication-TileColor" content="#da532c">
+  <meta name="theme-color" content="#ffffff">
+  <script data-goatcounter="https://brilliantsugar.goatcounter.com/count"
+      async src="//gc.zgo.at/count.js"></script>
+</head>
+
+  <body>
+    <div id="root">
+      <header>
+  <div id="brand">
+    <a class="icon-link" href="https://brilliantsugar.github.io/">
+      <img
+        class="icon"
+        src="/images/brandIcon.svg"
+      />
+    </a>
+    <div class="text">
+      <a href="https://brilliantsugar.github.io/"><h1>brilliantsugar</h1></a>
+      <h3> </h3>
+    </div>
+  </div>
+  <nav>
+    
+  </nav>
+  <hr />
+</header>
+
+      <div id="content">
+        
+  <main>
+    <article>
+      <h1 class="title">How I Learned to Stop Worrying and Love Juggling C&#43;&#43; Atomics</h1>
+      
+      <div class="post-meta">
+  <strong>
+    <span>Posted on</span>
+    <time>2024-01-14 00:00:00</time>
+    
+    
+  </strong>
+  <span> • 3952 words</span>
+  <span> • 19 minute read</span>
+  
+  
+</div>
+
+      <div class="content"><p>As most C++ programmers are aware, courtesy of <a href="https://www.youtube.com/watch?v=c1gO9aB9nbs">Herb Sutter</a>, programming lock-free data structures is akin to juggling razor blades. Reasoning about concurrent programs is already complex enough but modern CPU memory models are so complicated that they manage to make it even harder. The prevailing suggestion you often come across is to steer clear of lock-free programming entirely.</p>
+<blockquote class="framed">
+	<svg width="30" height="30" style="float: left; padding-right:10px; padding-top:20px;" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" class="h-6 w-6" viewBox="-0.17090198558635983 0.482230148717937 41.14235318283891 40.0339509076386">
+		<path d="M37.532 16.87a9.963 9.963 0 0 0-.856-8.184 10.078 10.078 0 0 0-10.855-4.835A9.964 9.964 0 0 0 18.306.5a10.079 10.079 0 0 0-9.614 6.977 9.967 9.967 0 0 0-6.664 4.834 10.08 10.08 0 0 0 1.24 11.817 9.965 9.965 0 0 0 .856 8.185 10.079 10.079 0 0 0 10.855 4.835 9.965 9.965 0 0 0 7.516 3.35 10.078 10.078 0 0 0 9.617-6.981 9.967 9.967 0 0 0 6.663-4.834 10.079 10.079 0 0 0-1.243-11.813zM22.498 37.886a7.474 7.474 0 0 1-4.799-1.735c.061-.033.168-.091.237-.134l7.964-4.6a1.294 1.294 0 0 0 .655-1.134V19.054l3.366 1.944a.12.12 0 0 1 .066.092v9.299a7.505 7.505 0 0 1-7.49 7.496zM6.392 31.006a7.471 7.471 0 0 1-.894-5.023c.06.036.162.099.237.141l7.964 4.6a1.297 1.297 0 0 0 1.308 0l9.724-5.614v3.888a.12.12 0 0 1-.048.103l-8.051 4.649a7.504 7.504 0 0 1-10.24-2.744zM4.297 13.62A7.469 7.469 0 0 1 8.2 10.333c0 .068-.004.19-.004.274v9.201a1.294 1.294 0 0 0 .654 1.132l9.723 5.614-3.366 1.944a.12.12 0 0 1-.114.01L7.04 23.856a7.504 7.504 0 0 1-2.743-10.237zm27.658 6.437l-9.724-5.615 3.367-1.943a.121.121 0 0 1 .113-.01l8.052 4.648a7.498 7.498 0 0 1-1.158 13.528v-9.476a1.293 1.293 0 0 0-.65-1.132zm3.35-5.043c-.059-.037-.162-.099-.236-.141l-7.965-4.6a1.298 1.298 0 0 0-1.308 0l-9.723 5.614v-3.888a.12.12 0 0 1 .048-.103l8.05-4.645a7.497 7.497 0 0 1 11.135 7.763zm-21.063 6.929l-3.367-1.944a.12.12 0 0 1-.065-.092v-9.299a7.497 7.497 0 0 1 12.293-5.756 6.94 6.94 0 0 0-.236.134l-7.965 4.6a1.294 1.294 0 0 0-.654 1.132l-.006 11.225zm1.829-3.943l4.33-2.501 4.332 2.5v5l-4.331 2.5-4.331-2.5V18z" stroke="currentColor" fill="currentColor"/>
+	</svg>
+    <p>Yet, there exists a shadowy realm where such recklessness is not just an option; it's a dire necessity. It's a call to arms, a siren's song, and it beckons to the restless souls of software engineers driven by the insatiable thirst for high performance.</p>
+</blockquote>
+
+<p>In this article, I share the adventures of exploring methods for formally verifying lock-free C++ code. To showcase three different approaches, I delve into the implementation of a lock-free triple buffer data structure.</p>
+<hr>
+<h2 id="whats-a-triple-buffer">What&rsquo;s a triple-buffer?</h2>
+<p>A triple buffer is like a double buffer, but triple!</p>
+<h3 id="whats-a-double-buffer-then">What&rsquo;s a double buffer then?</h3>
+<p>A double buffer is used in cases when you modify the state while another process needs to access it. While it&rsquo;s okay for the consumer process to see stale data from previous modifications, it is not okay to see a noncomplete modification in progress. This data structure is <a href="https://gameprogrammingpatterns.com/double-buffer.html">very common in computer graphics</a>: usually, you have 2 buffers - &ldquo;front buffer&rdquo; and &ldquo;back buffer&rdquo;.</p>
+<ul>
+<li>The front buffer is the portion of memory that directly corresponds to the pixels on the screen. The front buffer is what the user sees on the screen at any given moment.</li>
+<li>The back buffer is used to create and store the next frame or image that you want to display. Rendering is done in the back buffer, away from the user&rsquo;s view. Once the back buffer is complete and ready to be displayed, it can be swapped with the front buffer.</li>
+</ul>
+<p><img src="/how-i-learned-to-stop-worrying-and-love-juggling-c++-atomics/double-buffer.png" alt="double buffer">
+The double buffering technique works by updating the back buffer with the new image or frame, and when it&rsquo;s ready to be displayed, the roles of the front and back buffers are switched. It ensures that the user never sees a partially drawn or flickering image because the new frame is presented only when it&rsquo;s fully drawn in the back buffer. Those swaps typically happen 60 times per second.</p>
+<p>However, double buffers are useful <a href="https://stackoverflow.com/questions/23666069/single-producer-single-consumer-data-structure-with-double-buffer-in-c">in other real-time systems beyond graphics programming and game development</a>.</p>
+<h3 id="add-one-more-buffer">Add one more buffer</h3>
+<p>The problem with double buffering is that you cannot swap buffers while reading or writing is in progress so that requires a wait until either read or write is finished. That is a common problem in video game graphics where the frame rate gets capped by <a href="https://en.wikipedia.org/wiki/Analog_television#Vertical_synchronization">Vsync</a>.</p>
+<p>To avoid the wait we can introduce the 3rd buffer hence &ldquo;triple buffer&rdquo;!
+<img src="/how-i-learned-to-stop-worrying-and-love-juggling-c++-atomics/triple-buffer.png" alt="triple buffer">
+We can then use one buffer for the producer to prepare results, the second buffer to store the latest produced results, and the third buffer for the consumer. Both producer and consumer can always swap buffers without the need for cumbersome synchronization. It&rsquo;s a nice method for efficiently moving data from a <strong>single producer to a single consumer</strong>, free from the hurdles of locking or busy wait. Going back to the computer graphics example - a triple buffering technique is usually used to <a href="https://en.wikipedia.org/wiki/Multiple_buffering#Triple_buffering">improve game FPS</a>.</p>
+<hr>
+<h3 id="implementation">Implementation</h3>
+<p>I will intentionally implement a triple buffer with a data race bug. We will try and see if we can find this bug via automated tooling. The corrected code is in this <a href="https://github.com/brilliantsugar/trio">repo</a>.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">// A very buggy single producer/single consumer triple buffer implementation.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Trio</span> {
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Consumer side. Consumer calls Read() to get a buffer with either
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// stale data or the latest committed data.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    T<span style="color:#f92672">&amp;</span> Read() {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// First, check if there&#39;s newly committed data in the middle buffer.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// Return stale data otherwise.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">bool</span> isDirty <span style="color:#f92672">=</span> dirty_.load(std<span style="color:#f92672">::</span>memory_order_relaxed);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (isDirty) {
+</span></span><span style="display:flex;"><span>			<span style="color:#75715e">// Swap the front buffer with the middle buffer and reset the dirty flag
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>			front_buffer_ <span style="color:#f92672">=</span> middle_buffer_.exchange(front_buffer_, std<span style="color:#f92672">::</span>memory_order_acq_rel);
+</span></span><span style="display:flex;"><span>			dirty_.store(false, std<span style="color:#f92672">::</span>memory_order_relaxed);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>front_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Producer side. Get the current back buffer to write to it.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    T<span style="color:#f92672">&amp;</span> Write() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>back_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Producer side. Commit written data and swap the back buffer and
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#75715e">// the middle buffer.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Commit</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Swap buffer pointers and mark the middle buffer dirty so that the consumer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// knows that we have new committed data.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        back_buffer_ <span style="color:#f92672">=</span> middle_buffer_.exchange(back_buffer_, std<span style="color:#f92672">::</span>memory_order_acq_rel);
+</span></span><span style="display:flex;"><span>        dirty_.store(true, std<span style="color:#f92672">::</span>memory_order_relaxed);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Prevent implicit data sharing between threads
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kNoSharing <span style="color:#f92672">=</span> <span style="color:#ae81ff">64</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">alignas</span>(kNoSharing) Buffer {
+</span></span><span style="display:flex;"><span>        T data{};
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Buffer buffers_[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#75715e">// Dirty flag. Indicates that there&#39;s new data in the middle buffer.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    std<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">bool</span><span style="color:#f92672">&gt;</span> dirty_{false};
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">*&gt;</span> middle_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">1</span>].data};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> front_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">0</span>].data}; <span style="color:#75715e">// only consumer accesses this
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> back_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">2</span>].data};  <span style="color:#75715e">// only producer accesses this
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>};
+</span></span></code></pre></div><p>We have 3 &ldquo;buffers&rdquo; that can really be any user-provided type. The consumer reads either stale data or (if available) newly committed data. To convey to the consumer that new data is ready for reading from the middle buffer, we add a boolean &ldquo;dirty&rdquo; flag. Once the data modifications are finished, the user is expected to call Commit(), and the consumer swaps the back buffer with the middle buffer and marks the data dirty. During the subsequent read, the consumer will check the dirty flag and swap the front buffer and the middle buffer if needed.
+That sounds okay and even if we run a simple <a href="https://github.com/brilliantsugar/trio/blob/main/tests/example.cc">example</a>; it looks like it works fine. However, this implementation does have a bug.</p>
+<hr>
+<h2 id="verification">Verification</h2>
+<p>In my quest, I stumbled upon a handful of tools that promise automated verification of concurrent algorithms. Let&rsquo;s go over a few of them that seemed most promising.</p>
+<h3 id="relacy">Relacy</h3>
+<p><a href="https://www.1024cores.net/home/relacy-race-detector">Relacy</a> race detector is a C++ library for writing unit tests for multithreaded code. You instrument your concurrent code with special hooks and then Relacy is able to emulate multiple possible orders of execution of concurrent code. The emulation itself is single-threaded. Relacy is using coroutines to break inside your code and reorder data accesses. It is able to emulate C++0x memory model with regards to memory fences, check for data races, deadlocks, live locks, and many more.
+Though my initial reservations had doubts about a decade-old project with its latest commit dating back to 2019, I was pleasantly astounded. Integrating Relacy and seamlessly compiling it with the latest Clang, both on Mac and Linux, turned out to be remarkably smooth.
+The instrumented buggy triple buffer is the following:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">// A very buggy single producer/single consumer triple buffer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// instrumented with relacy.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">template</span><span style="color:#f92672">&lt;</span><span style="color:#66d9ef">typename</span> T<span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Trio</span> {
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">&amp;</span> Read() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">bool</span> isDirty <span style="color:#f92672">=</span> dirty_(<span style="color:#960050;background-color:#1e0010">$</span>).load(rl<span style="color:#f92672">::</span>mo_relaxed);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (isDirty) {
+</span></span><span style="display:flex;"><span>			front_buffer_ <span style="color:#f92672">=</span> middle_buffer_(<span style="color:#960050;background-color:#1e0010">$</span>).exchange(front_buffer_, rl<span style="color:#f92672">::</span>mo_acq_rel);
+</span></span><span style="display:flex;"><span>			dirty_(<span style="color:#960050;background-color:#1e0010">$</span>).store(false, rl<span style="color:#f92672">::</span>mo_relaxed);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>front_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">&amp;</span> Write() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>back_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Commit</span>() {
+</span></span><span style="display:flex;"><span>        back_buffer_ <span style="color:#f92672">=</span> middle_buffer_(<span style="color:#960050;background-color:#1e0010">$</span>).exchange(back_buffer_, rl<span style="color:#f92672">::</span>mo_acq_rel);
+</span></span><span style="display:flex;"><span>        dirty_(<span style="color:#960050;background-color:#1e0010">$</span>).store(true, rl<span style="color:#f92672">::</span>mo_relaxed);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kNoSharing <span style="color:#f92672">=</span> <span style="color:#ae81ff">64</span>;
+</span></span><span style="display:flex;"><span>	
+</span></span><span style="display:flex;"><span>	<span style="color:#75715e">// avoid false-sharing, align buffers to cache-line size
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">alignas</span>(kNoSharing) Buffer {
+</span></span><span style="display:flex;"><span>        T data{<span style="color:#ae81ff">0</span>};
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Buffer buffers_[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    rl<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">bool</span><span style="color:#f92672">&gt;</span> dirty_{false};
+</span></span><span style="display:flex;"><span>    rl<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span>T<span style="color:#f92672">*&gt;</span> middle_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">1</span>].data};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> front_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">0</span>].data};
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> back_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">2</span>].data};
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>In the real world, you would want to be able to switch from the production version to the instrumented version via some macro or templated traits but here for the sake of clarity, I will keep the instrumented version separately. As you can see differences with the original code are minimal: Relacy uses variable $ to pass internal state around, and a few std thread/atomic calls need to be changed to rl:: namespace.</p>
+<p>We can now unit-test our triple-buffer and let Relacy emulate as many scenarios as we can. For the unit test I will check those 2 simple conditions:</p>
+<ul>
+<li>Consumer sees all modifications that Producer did in the same order as they were made. It&rsquo;s okay to lose some intermediate states if they were overwritten before the consumer read them.</li>
+<li>Once the producer stops - the consumer is able to see the latest value that was written.
+In addition, Relacy itself will check code for data races, deadlocks, and livelocks and report any findings.
+Here&rsquo;s what it looks like:</li>
+</ul>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;relacy/relacy.hpp&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Will create 2 &#34;threads&#34;:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// One for consumer, one for producer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kThreads <span style="color:#f92672">=</span> <span style="color:#ae81ff">2</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Each buffer is just a single integer.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// Testing for:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// - Order of updates is the same for producer and consumer.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// - Last written value by the producer is never lost
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">// - Other conditions that relacy checks automatically:
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">//   data races, deadlocks, livelocks.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">TrioTest</span> <span style="color:#f92672">:</span> rl<span style="color:#f92672">::</span>test_suite<span style="color:#f92672">&lt;</span>TrioTest, kThreads<span style="color:#f92672">&gt;</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kLastNumber <span style="color:#f92672">=</span> <span style="color:#ae81ff">25</span>;
+</span></span><span style="display:flex;"><span>    bs<span style="color:#f92672">::</span>Trio<span style="color:#f92672">&lt;</span>rl<span style="color:#f92672">::</span>var<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;&gt;</span> trio{};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">thread</span>(<span style="color:#66d9ef">unsigned</span> thread_index) {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> (thread_index <span style="color:#f92672">==</span> <span style="color:#ae81ff">0</span>) { <span style="color:#75715e">// Producer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e">// Writing 25 integers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>; i <span style="color:#f92672">&lt;=</span> kLastNumber; <span style="color:#f92672">++</span>i) {
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">auto</span> rlval <span style="color:#f92672">=</span> trio.Write()(<span style="color:#960050;background-color:#1e0010">$</span>);
+</span></span><span style="display:flex;"><span>                rlval.store(i);
+</span></span><span style="display:flex;"><span>                trio.Commit();
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        } <span style="color:#66d9ef">else</span> { <span style="color:#75715e">// Consumer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e">// Read until we get 25. If 25 is never read
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#75715e">// relacy will report livelock.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>            <span style="color:#66d9ef">int</span> prev_read <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>            <span style="color:#66d9ef">while</span> (prev_read <span style="color:#f92672">!=</span> kLastNumber) {
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> rlval <span style="color:#f92672">=</span> trio.Read();
+</span></span><span style="display:flex;"><span>                <span style="color:#66d9ef">int</span> val <span style="color:#f92672">=</span> rlval(<span style="color:#960050;background-color:#1e0010">$</span>);
+</span></span><span style="display:flex;"><span>                <span style="color:#75715e">// Check order: new value must be &gt;= than the previous
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#75715e">// It will be &gt; when it&#39;s new value, and will
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                <span style="color:#75715e">// be == to previous when we read stale data. 
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>                RL_ASSERT(val <span style="color:#f92672">&gt;=</span> prev_read);
+</span></span><span style="display:flex;"><span>                prev_read <span style="color:#f92672">=</span> val;
+</span></span><span style="display:flex;"><span>            }
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    rl<span style="color:#f92672">::</span>simulate<span style="color:#f92672">&lt;</span>TrioTest<span style="color:#f92672">&gt;</span>();
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Let&rsquo;s compile and run it:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>brilliantsugar $ clang++ test_relacy.cc -o ./test_relacy -g -O3 -I./ -I/relacy -std<span style="color:#f92672">=</span>c++20
+</span></span><span style="display:flex;"><span>brilliantsugar $ ./test_relacy
+</span></span><span style="display:flex;"><span>TrioTest
+</span></span><span style="display:flex;"><span>USER ASSERT FAILED <span style="color:#f92672">(</span>assertion: val &gt;<span style="color:#f92672">=</span> prev_read<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>iteration: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>execution history <span style="color:#f92672">(</span>188<span style="color:#f92672">)</span>:
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>0<span style="color:#f92672">]</span> 1: <span style="color:#f92672">[</span>CTOR BEGIN<span style="color:#f92672">]</span>, in fiber_proc_impl, ./../tests/relacy/relacy/context.hpp<span style="color:#f92672">(</span>457<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>... skipped ...
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>166<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef045b0&gt; store, value<span style="color:#f92672">=</span>23, in thread, test_relacy.cc<span style="color:#f92672">(</span>23<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>167<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef04690&gt; exchange , prev<span style="color:#f92672">=</span>0x7fe2bef045f0, arg<span style="color:#f92672">=</span>0x7fe2bef045b0, new<span style="color:#f92672">=</span>0x7fe2bef045b0, order<span style="color:#f92672">=</span>acq_rel, in Commit, ./trio.bug.relacy.h<span style="color:#f92672">(</span>27<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>168<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic load, value<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span> <span style="color:#f92672">[</span>NOT CURRENT<span style="color:#f92672">]</span>, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>169<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04630&gt; load, value<span style="color:#f92672">=</span>20, in thread, test_relacy.cc<span style="color:#f92672">(</span>33<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>170<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef04670&gt; atomic store, value<span style="color:#f92672">=</span>1, <span style="color:#f92672">(</span>prev value<span style="color:#f92672">=</span>1<span style="color:#f92672">)</span>, order<span style="color:#f92672">=</span>relaxed, in Commit, ./trio.bug.relacy.h<span style="color:#f92672">(</span>29<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>171<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef045f0&gt; store, value<span style="color:#f92672">=</span>24, in thread, test_relacy.cc<span style="color:#f92672">(</span>23<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>172<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic load, value<span style="color:#f92672">=</span><span style="color:#ae81ff">1</span> <span style="color:#f92672">[</span>NOT CURRENT<span style="color:#f92672">]</span>, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>173<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef04690&gt; exchange , prev<span style="color:#f92672">=</span>0x7fe2bef045b0, arg<span style="color:#f92672">=</span>0x7fe2bef045f0, new<span style="color:#f92672">=</span>0x7fe2bef045f0, order<span style="color:#f92672">=</span>acq_rel, in Commit, ./trio.bug.relacy.h<span style="color:#f92672">(</span>27<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>174<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04690&gt; exchange , prev<span style="color:#f92672">=</span>0x7fe2bef045f0, arg<span style="color:#f92672">=</span>0x7fe2bef04630, new<span style="color:#f92672">=</span>0x7fe2bef04630, order<span style="color:#f92672">=</span>acq_rel, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>16<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>175<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic store, value<span style="color:#f92672">=</span>0, <span style="color:#f92672">(</span>prev value<span style="color:#f92672">=</span>1<span style="color:#f92672">)</span>, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>18<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>176<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef045f0&gt; load, value<span style="color:#f92672">=</span>24, in thread, test_relacy.cc<span style="color:#f92672">(</span>33<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>177<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic load, value<span style="color:#f92672">=</span>0, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>178<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef045f0&gt; load, value<span style="color:#f92672">=</span>24, in thread, test_relacy.cc<span style="color:#f92672">(</span>33<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>179<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef04670&gt; atomic store, value<span style="color:#f92672">=</span>1, <span style="color:#f92672">(</span>prev value<span style="color:#f92672">=</span>0<span style="color:#f92672">)</span>, order<span style="color:#f92672">=</span>relaxed, in Commit, ./trio.bug.relacy.h<span style="color:#f92672">(</span>29<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>180<span style="color:#f92672">]</span> 0: &lt;0x7fe2bef045b0&gt; store, value<span style="color:#f92672">=</span>25, in thread, test_relacy.cc<span style="color:#f92672">(</span>23<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>181<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic load, value<span style="color:#f92672">=</span><span style="color:#ae81ff">0</span> <span style="color:#f92672">[</span>NOT CURRENT<span style="color:#f92672">]</span>, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>182<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef045f0&gt; load, value<span style="color:#f92672">=</span>24, in thread, test_relacy.cc<span style="color:#f92672">(</span>33<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>183<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic load, value<span style="color:#f92672">=</span>1, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>184<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04690&gt; exchange , prev<span style="color:#f92672">=</span>0x7fe2bef04630, arg<span style="color:#f92672">=</span>0x7fe2bef045f0, new<span style="color:#f92672">=</span>0x7fe2bef045f0, order<span style="color:#f92672">=</span>acq_rel, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>16<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>185<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04670&gt; atomic store, value<span style="color:#f92672">=</span>0, <span style="color:#f92672">(</span>prev value<span style="color:#f92672">=</span>1<span style="color:#f92672">)</span>, order<span style="color:#f92672">=</span>relaxed, in Read, ./trio.bug.relacy.h<span style="color:#f92672">(</span>18<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>186<span style="color:#f92672">]</span> 1: &lt;0x7fe2bef04630&gt; load, value<span style="color:#f92672">=</span>20, in thread, test_relacy.cc<span style="color:#f92672">(</span>33<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#f92672">[</span>187<span style="color:#f92672">]</span> 1: USER ASSERT FAILED <span style="color:#f92672">(</span>assertion: val &gt;<span style="color:#f92672">=</span> prev_read<span style="color:#f92672">)</span>, in thread, test_relacy.cc<span style="color:#f92672">(</span>37<span style="color:#f92672">)</span>
+</span></span></code></pre></div><p>Whoa, <code>USER ASSERT FAILED (assertion: val &gt;= prev_read)</code>! Assert that all changes are propagated from consumer to producer in order have failed! Along with that Relacy printed a sequence of memory accesses that led my triple buffer to end up in this state.</p>
+<p>We are only interested in a few last lines here. That&rsquo;s where the problem is. Let&rsquo;s illustrate what happened with a sequence diagram.
+<img src="/how-i-learned-to-stop-worrying-and-love-juggling-c++-atomics/dirty-race.png" alt="dirty-race">
+When the consumer&rsquo;s and producer&rsquo;s calls get interleaved as shown above - the consumer still sees a dirty flag from the previous write yet it is actually consuming new data. Then the producer marks data dirty again while our intermediate middle buffer contains garbage from the previous read. It&rsquo;s clear to see that the next read will end up reading that stale data from the middle buffer and the system ends up in the wrong state.
+We were able to derive the initial state of buffers from Relacy execution history and then it&rsquo;s easy to notice a sequence of events that led the system into this state:</p>
+<ol>
+<li>[172] 1: &lt;0x7fe2bef04670&gt; atomic load, value=1 [NOT CURRENT], order=relaxed, in Read, ./trio.bug.relacy.h(11)</li>
+<li>[173] 0: &lt;0x7fe2bef04690&gt; exchange , prev=0x7fe2bef045b0, arg=0x7fe2bef045f0, new=0x7fe2bef045f0, order=acq_rel, in Commit, ./trio.bug.relacy.h(27)</li>
+<li>[174] 1: &lt;0x7fe2bef04690&gt; exchange , prev=0x7fe2bef045f0, arg=0x7fe2bef04630, new=0x7fe2bef04630, order=acq_rel, in Read, ./trio.bug.relacy.h(16)</li>
+<li>[175] 1: &lt;0x7fe2bef04670&gt; atomic store, value=0, (prev value=1), order=relaxed, in Read, ./trio.bug.relacy.h(18)</li>
+<li>[179] 0: &lt;0x7fe2bef04670&gt; atomic store, value=1, (prev value=0), order=relaxed, in Commit, ./trio.bug.relacy.h(29)</li>
+</ol>
+<p>Our data race bug indeed did not get away from the relentless scrutiny of Relacy&rsquo;s all-seeing eye. Now let&rsquo;s correct it.</p>
+<hr>
+<h3 id="corrected-code">Corrected code</h3>
+<p>The core problem with our triple buffer is that dirty flag and buffer swapping are happening independently which gives an opportunity for those operations to be interleaved in a bad way.
+Can we tie them together so that swapping and dirtying data is done atomically?</p>
+<p>The simplest way is to store the dirty flag along with the buffer pointers that we swap. The swap is done atomically so a dirty flag will get propagated from consumer to producer along with a swap.</p>
+<p>Our buffers are already aligned to cache line size (64 on most common CPUs, 128 on some of Apple silicon) so that we can avoid the <a href="https://en.wikipedia.org/wiki/False_sharing">false sharing problem</a>. That means that at least 6 of the least significant bits in every pointer will always be zeros. Knowing that, we can use the least significant bit to store the dirty flag:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#66d9ef">template</span><span style="color:#f92672">&lt;</span><span style="color:#66d9ef">typename</span> T<span style="color:#f92672">&gt;</span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">class</span> <span style="color:#a6e22e">Trio</span> {
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">public</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    Trio() <span style="color:#f92672">=</span> <span style="color:#66d9ef">default</span>;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">&amp;</span> Read() {
+</span></span><span style="display:flex;"><span>        uintptr_t dirty_ptr <span style="color:#f92672">=</span> middle_buffer_.load(std<span style="color:#f92672">::</span>memory_order_relaxed);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span> ((dirty_ptr <span style="color:#f92672">&amp;</span> kDirtyBit) <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span>) {
+</span></span><span style="display:flex;"><span>			uintptr_t prev <span style="color:#f92672">=</span> middle_buffer_.exchange(<span style="color:#66d9ef">reinterpret_cast</span><span style="color:#f92672">&lt;</span>uintptr_t<span style="color:#f92672">&gt;</span>(front_buffer_), std<span style="color:#f92672">::</span>memory_order_acq_rel);
+</span></span><span style="display:flex;"><span>			front_buffer_ <span style="color:#f92672">=</span> <span style="color:#66d9ef">reinterpret_cast</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">*&gt;</span>(prev <span style="color:#f92672">&amp;</span> kDirtyBitMask);
+</span></span><span style="display:flex;"><span>        }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>front_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">&amp;</span> Write() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">return</span> <span style="color:#f92672">*</span>back_buffer_;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">void</span> <span style="color:#a6e22e">Commit</span>() {
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">const</span> uintptr_t dirty_ptr <span style="color:#f92672">=</span> kDirtyBit <span style="color:#f92672">|</span> <span style="color:#66d9ef">reinterpret_cast</span><span style="color:#f92672">&lt;</span>uintptr_t<span style="color:#f92672">&gt;</span>(back_buffer_); 
+</span></span><span style="display:flex;"><span>        uintptr_t prev <span style="color:#f92672">=</span> middle_buffer_.exchange(dirty_ptr, std<span style="color:#f92672">::</span>memory_order_acq_rel) <span style="color:#f92672">&amp;</span> kDirtyBitMask;
+</span></span><span style="display:flex;"><span>        back_buffer_ <span style="color:#f92672">=</span> <span style="color:#66d9ef">reinterpret_cast</span><span style="color:#f92672">&lt;</span>T<span style="color:#f92672">*&gt;</span>(prev);
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">private</span><span style="color:#f92672">:</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kNoSharing <span style="color:#f92672">=</span> <span style="color:#ae81ff">64</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> uintptr_t kDirtyBit <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> uintptr_t kDirtyBitMask <span style="color:#f92672">=</span> <span style="color:#f92672">~</span>uintptr_t() <span style="color:#f92672">^</span> kDirtyBit;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">struct</span> <span style="color:#a6e22e">alignas</span>(kNoSharing) Buffer {
+</span></span><span style="display:flex;"><span>        T data{};
+</span></span><span style="display:flex;"><span>    };
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    Buffer buffers_[<span style="color:#ae81ff">3</span>];
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    std<span style="color:#f92672">::</span>atomic<span style="color:#f92672">&lt;</span>uintptr_t<span style="color:#f92672">&gt;</span> middle_buffer_{<span style="color:#66d9ef">reinterpret_cast</span><span style="color:#f92672">&lt;</span>uintptr_t<span style="color:#f92672">&gt;</span>(<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">1</span>].data)};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> back_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">0</span>].data};
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">alignas</span>(kNoSharing)
+</span></span><span style="display:flex;"><span>    T<span style="color:#f92672">*</span> front_buffer_{<span style="color:#f92672">&amp;</span>buffers_[<span style="color:#ae81ff">2</span>].data};
+</span></span><span style="display:flex;"><span>};
+</span></span></code></pre></div><p>It is easy to get an instrumented code from this. Now let&rsquo;s try to run it again:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>brilliantsugar $ ./out/test_relacy
+</span></span><span style="display:flex;"><span>TrioTest
+</span></span><span style="display:flex;"><span>iterations: <span style="color:#ae81ff">1000</span>
+</span></span><span style="display:flex;"><span>total time: <span style="color:#ae81ff">20</span>
+</span></span><span style="display:flex;"><span>throughput: <span style="color:#ae81ff">50000</span>
+</span></span></code></pre></div><p>Our once-troubled triple buffer stands tall!</p>
+<hr>
+<h3 id="c11tester">C11Tester</h3>
+<p><a href="https://plrg.ics.uci.edu/c11tester/">C11Tester</a> is a research project from the University of California, Irvine. The core principle of C11Tester is the same as Relacy: it is trying to simulate all the possible states that your program might end up with given the C++ memory model. It uses a different graph traversal algorithm for finding which states are possible and emulating the visibility of store operations. There are more details on the exact algorithm in this <a href="https://dl.acm.org/doi/10.1145/3445814.3446711">paper</a>. The authors claim that the algorithm allows much better performance compared to similar fuzzers and covers for larger variety of possible edge cases.</p>
+<p>Another interesting thing is that, unlike Relacy, C11Tester does not require any special instrumentation of your code. Instead, the instrumentation is done at the compiler level. C11Tester utilizes <a href="https://clang.llvm.org/docs/ClangPlugins.html">clang plugins</a> to instrument your code automatically. This also means it only works under Clang.</p>
+<p><blockquote class="framed">
+	<svg width="30" height="30" style="float: left; padding-right:10px; padding-top:20px;" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" class="h-6 w-6" viewBox="-0.17090198558635983 0.482230148717937 41.14235318283891 40.0339509076386">
+		<path d="M37.532 16.87a9.963 9.963 0 0 0-.856-8.184 10.078 10.078 0 0 0-10.855-4.835A9.964 9.964 0 0 0 18.306.5a10.079 10.079 0 0 0-9.614 6.977 9.967 9.967 0 0 0-6.664 4.834 10.08 10.08 0 0 0 1.24 11.817 9.965 9.965 0 0 0 .856 8.185 10.079 10.079 0 0 0 10.855 4.835 9.965 9.965 0 0 0 7.516 3.35 10.078 10.078 0 0 0 9.617-6.981 9.967 9.967 0 0 0 6.663-4.834 10.079 10.079 0 0 0-1.243-11.813zM22.498 37.886a7.474 7.474 0 0 1-4.799-1.735c.061-.033.168-.091.237-.134l7.964-4.6a1.294 1.294 0 0 0 .655-1.134V19.054l3.366 1.944a.12.12 0 0 1 .066.092v9.299a7.505 7.505 0 0 1-7.49 7.496zM6.392 31.006a7.471 7.471 0 0 1-.894-5.023c.06.036.162.099.237.141l7.964 4.6a1.297 1.297 0 0 0 1.308 0l9.724-5.614v3.888a.12.12 0 0 1-.048.103l-8.051 4.649a7.504 7.504 0 0 1-10.24-2.744zM4.297 13.62A7.469 7.469 0 0 1 8.2 10.333c0 .068-.004.19-.004.274v9.201a1.294 1.294 0 0 0 .654 1.132l9.723 5.614-3.366 1.944a.12.12 0 0 1-.114.01L7.04 23.856a7.504 7.504 0 0 1-2.743-10.237zm27.658 6.437l-9.724-5.615 3.367-1.943a.121.121 0 0 1 .113-.01l8.052 4.648a7.498 7.498 0 0 1-1.158 13.528v-9.476a1.293 1.293 0 0 0-.65-1.132zm3.35-5.043c-.059-.037-.162-.099-.236-.141l-7.965-4.6a1.298 1.298 0 0 0-1.308 0l-9.723 5.614v-3.888a.12.12 0 0 1 .048-.103l8.05-4.645a7.497 7.497 0 0 1 11.135 7.763zm-21.063 6.929l-3.367-1.944a.12.12 0 0 1-.065-.092v-9.299a7.497 7.497 0 0 1 12.293-5.756 6.94 6.94 0 0 0-.236.134l-7.965 4.6a1.294 1.294 0 0 0-.654 1.132l-.006 11.225zm1.829-3.943l4.33-2.501 4.332 2.5v5l-4.331 2.5-4.331-2.5V18z" stroke="currentColor" fill="currentColor"/>
+	</svg>
+    <p>Navigating the treacherous waters of C11Tester was a twisted expedition that swallowed chunks of time. The instructions that accompanied this enigmatic creature were incomplete, pushing me to embark on a quest through the C11Tester code.</p>
+</blockquote>
+
+Finally, I got it running and printing out reasonable results. I only managed to get it working under Clang 8 which is quite a bummer. (The current Clang version at the time of this article is 17)</p>
+<p>Let&rsquo;s try C11Tester on our buggy triple-buffer:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-cpp" data-lang="cpp"><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;trio.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;model-assert.h&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#include</span> <span style="color:#75715e">&lt;thread&gt;</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">namespace</span> {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">static</span> <span style="color:#66d9ef">constexpr</span> size_t kLastNumber <span style="color:#f92672">=</span> <span style="color:#ae81ff">25</span>;
+</span></span><span style="display:flex;"><span>    bs<span style="color:#f92672">::</span>Trio<span style="color:#f92672">&lt;</span><span style="color:#66d9ef">int</span><span style="color:#f92672">&gt;</span> trio{};
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Write ints from 1 to 25 into the triple buffer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">void</span> <span style="color:#a6e22e">producer</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">for</span> (<span style="color:#66d9ef">int</span> i <span style="color:#f92672">=</span> <span style="color:#ae81ff">1</span>; i <span style="color:#f92672">&lt;=</span> kLastNumber; <span style="color:#f92672">++</span>i) {
+</span></span><span style="display:flex;"><span>        trio.Write() <span style="color:#f92672">=</span> i;
+</span></span><span style="display:flex;"><span>        trio.Commit();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">int</span> <span style="color:#a6e22e">main</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">auto</span> producer_thread <span style="color:#f92672">=</span> std<span style="color:#f92672">::</span><span style="color:#66d9ef">thread</span>(producer);
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> prev_read <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">while</span> (prev_read <span style="color:#f92672">!=</span> kLastNumber) { <span style="color:#75715e">// Read ints from the buffer
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">const</span> <span style="color:#66d9ef">auto</span><span style="color:#f92672">&amp;</span> val <span style="color:#f92672">=</span> trio.Read();
+</span></span><span style="display:flex;"><span>        MODEL_ASSERT(val <span style="color:#f92672">&gt;=</span> prev_read); <span style="color:#75715e">// Check numbers come in the expected order
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        prev_read <span style="color:#f92672">=</span> val;
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>    producer_thread.join(); <span style="color:#75715e">// Hang forever if we never get the last number
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>    <span style="color:#66d9ef">return</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>Let&rsquo;s compile this with C11Tester hooked up and run it.</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>brilliantsugar $ LD_LIBRARY_PATH<span style="color:#f92672">=</span>c11tester clang++-8 -Xclang -load -Xclang llvm-8.0.1.src/build/lib/libCDSPass.so -Lc11tester/ -lmodel -Ic11tester/include -g -O3 -rdynamic test_c11tester.cc -o out/test_c11tester
+</span></span><span style="display:flex;"><span>brilliantsugar $ ./out/test_c11tester
+</span></span><span style="display:flex;"><span>C11Tester
+</span></span><span style="display:flex;"><span>Copyright <span style="color:#f92672">(</span>c<span style="color:#f92672">)</span> <span style="color:#ae81ff">2013</span> and <span style="color:#ae81ff">2019</span> Regents of the University of California. All rights reserved.
+</span></span><span style="display:flex;"><span>Distributed under the GPLv2
+</span></span><span style="display:flex;"><span>Written by Weiyu Luo, Brian Norris, and Brian Demsky
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Program output from execution 1:
+</span></span><span style="display:flex;"><span>---- BEGIN PROGRAM OUTPUT ----
+</span></span><span style="display:flex;"><span>---- END PROGRAM OUTPUT   ----
+</span></span><span style="display:flex;"><span>Number of complete, bug-free executions: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>Number of buggy executions: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>Total executions: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Bug report: <span style="color:#ae81ff">1</span> bug detected
+</span></span><span style="display:flex;"><span>  <span style="color:#f92672">[</span>BUG<span style="color:#f92672">]</span> Program has hit assertion in file test_c11tester.cc at line <span style="color:#ae81ff">25</span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>Execution trace 1: DETECTED BUG<span style="color:#f92672">(</span>S<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>------------------------------------------------------------------------------------
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#    t    Action type     MO       Location         Value               Rf  CV</span>
+</span></span><span style="display:flex;"><span>------------------------------------------------------------------------------------
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">1</span>    <span style="color:#ae81ff">1</span>    thread start    seq_cst  00007FB936A9A0D0   0xdeadbeef              <span style="color:#f92672">(</span> 0,  1<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">2</span>    <span style="color:#ae81ff">1</span>    pthread create  seq_cst  00007FFEF8C13608   0x7ffef8c135b0          <span style="color:#f92672">(</span> 0,  2<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">3</span>    <span style="color:#ae81ff">2</span>    thread start    seq_cst  00007FB93821BA18   0xdeadbeef              <span style="color:#f92672">(</span> 0,  2,  3<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">4</span>    <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                   <span style="color:#ae81ff">0</span>   <span style="color:#f92672">(</span> 0,  4<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">5</span>    <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                   <span style="color:#ae81ff">0</span>   <span style="color:#f92672">(</span> 0,  5<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">6</span>    <span style="color:#ae81ff">2</span>    atomic rmw      acq_rel  00000000006031C8   0x603140          <span style="color:#f92672">(</span>603180<span style="color:#f92672">)</span>  <span style="color:#ae81ff">0</span>   <span style="color:#f92672">(</span> 0,  2,  6<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">7</span>    <span style="color:#ae81ff">2</span>    atomic write    relaxed  00000000006031C0   0x1                     <span style="color:#f92672">(</span> 0,  2,  7<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">8</span>    <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                   <span style="color:#ae81ff">0</span>   <span style="color:#f92672">(</span> 0,  8<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">9</span>    <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                   <span style="color:#ae81ff">0</span>   <span style="color:#f92672">(</span> 0,  9<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">10</span>   <span style="color:#ae81ff">2</span>    atomic rmw      acq_rel  00000000006031C8   0x603180          <span style="color:#f92672">(</span>603140<span style="color:#f92672">)</span>  <span style="color:#ae81ff">6</span>   <span style="color:#f92672">(</span> 0,  2, 10<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">11</span>   <span style="color:#ae81ff">2</span>    atomic write    relaxed  00000000006031C0   0x1                     <span style="color:#f92672">(</span> 0,  2, 11<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">12</span>   <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   0x1                 <span style="color:#ae81ff">7</span>   <span style="color:#f92672">(</span> 0, 12<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">13</span>   <span style="color:#ae81ff">2</span>    atomic rmw      acq_rel  00000000006031C8   0x603140          <span style="color:#f92672">(</span>603180<span style="color:#f92672">)</span>  <span style="color:#ae81ff">10</span>  <span style="color:#f92672">(</span> 0,  2, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">14</span>   <span style="color:#ae81ff">2</span>    atomic write    relaxed  00000000006031C0   0x1                     <span style="color:#f92672">(</span> 0,  2, 14<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">15</span>   <span style="color:#ae81ff">1</span>    atomic rmw      acq_rel  00000000006031C8   0x603180          <span style="color:#f92672">(</span>603100<span style="color:#f92672">)</span>  <span style="color:#ae81ff">13</span>  <span style="color:#f92672">(</span> 0, 15, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">16</span>   <span style="color:#ae81ff">1</span>    atomic write    relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                       <span style="color:#f92672">(</span> 0, 16, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">17</span>   <span style="color:#ae81ff">1</span>    atomic read     relaxed  00000000006031C0   0x1                 <span style="color:#ae81ff">14</span>  <span style="color:#f92672">(</span> 0, 17, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">18</span>   <span style="color:#ae81ff">1</span>    atomic rmw      acq_rel  00000000006031C8   0x603100          <span style="color:#f92672">(</span>603180<span style="color:#f92672">)</span>  <span style="color:#ae81ff">15</span>  <span style="color:#f92672">(</span> 0, 18, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span><span style="color:#ae81ff">19</span>   <span style="color:#ae81ff">1</span>    atomic write    relaxed  00000000006031C0   <span style="color:#ae81ff">0</span>                       <span style="color:#f92672">(</span> 0, 19, 13<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>HASH <span style="color:#ae81ff">280478415</span>
+</span></span><span style="display:flex;"><span>------------------------------------------------------------------------------------
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>******* Model-checking complete: *******
+</span></span><span style="display:flex;"><span>Number of complete, bug-free executions: <span style="color:#ae81ff">0</span>
+</span></span><span style="display:flex;"><span>Number of buggy executions: <span style="color:#ae81ff">1</span>
+</span></span><span style="display:flex;"><span>Total executions: <span style="color:#ae81ff">1</span>
+</span></span></code></pre></div><p>C11Tester had no issues finding the same race as Relacy. It does seem like it required a bit less steps to find it. Compared to Relacy - It&rsquo;s a bit harder to follow the output because to understand the order of actual reads and writes on each thread you need to follow vector clocks sequence numbers (CV column on the right). Additionally, it doesn&rsquo;t track the state of non-atomic variables - making it harder to understand what state your program was in when assert hit.</p>
+<p>Overall, C11Tester looks very promising but requires quite a bit of work to turn it from a research project into an everyday tool (A port to more recent LLVM/Clang versions would be great).</p>
+<hr>
+<h3 id="spin">Spin</h3>
+<p>Moving on to a more exotic tool. <a href="https://spinroot.com">Spin</a> is a formal verification tool. For those unfamiliar, the way the formal verification usually works: you define a mathematical model of your algorithm via some intermediate language and then you can run a variety of tests on that model. That includes tests that the system invariants hold and tests for deadlocks and livelocks.</p>
+<p>The hardest part of a formal verification system is to correctly model the program in question. Spin is using the language <a href="https://en.wikipedia.org/wiki/Promela">Promela</a> to define a model. Compared to other similar toolkits (i.e. TLA+, Coq) Promela has a more humane syntax that doesn&rsquo;t shock a typical programmer as much.</p>
+<p>Another problem is that Promela doesn&rsquo;t know anything about CPUs or C++ memory model. That means you need to first model your CPU architecture and C++ memory model in Promela. That turned out an extremely non-trivial task that people dedicate their Ph.D. theses.</p>
+<blockquote class="framed">
+	<svg width="30" height="30" style="float: left; padding-right:10px; padding-top:20px;" fill="none" xmlns="http://www.w3.org/2000/svg" stroke-width="1.5" class="h-6 w-6" viewBox="-0.17090198558635983 0.482230148717937 41.14235318283891 40.0339509076386">
+		<path d="M37.532 16.87a9.963 9.963 0 0 0-.856-8.184 10.078 10.078 0 0 0-10.855-4.835A9.964 9.964 0 0 0 18.306.5a10.079 10.079 0 0 0-9.614 6.977 9.967 9.967 0 0 0-6.664 4.834 10.08 10.08 0 0 0 1.24 11.817 9.965 9.965 0 0 0 .856 8.185 10.079 10.079 0 0 0 10.855 4.835 9.965 9.965 0 0 0 7.516 3.35 10.078 10.078 0 0 0 9.617-6.981 9.967 9.967 0 0 0 6.663-4.834 10.079 10.079 0 0 0-1.243-11.813zM22.498 37.886a7.474 7.474 0 0 1-4.799-1.735c.061-.033.168-.091.237-.134l7.964-4.6a1.294 1.294 0 0 0 .655-1.134V19.054l3.366 1.944a.12.12 0 0 1 .066.092v9.299a7.505 7.505 0 0 1-7.49 7.496zM6.392 31.006a7.471 7.471 0 0 1-.894-5.023c.06.036.162.099.237.141l7.964 4.6a1.297 1.297 0 0 0 1.308 0l9.724-5.614v3.888a.12.12 0 0 1-.048.103l-8.051 4.649a7.504 7.504 0 0 1-10.24-2.744zM4.297 13.62A7.469 7.469 0 0 1 8.2 10.333c0 .068-.004.19-.004.274v9.201a1.294 1.294 0 0 0 .654 1.132l9.723 5.614-3.366 1.944a.12.12 0 0 1-.114.01L7.04 23.856a7.504 7.504 0 0 1-2.743-10.237zm27.658 6.437l-9.724-5.615 3.367-1.943a.121.121 0 0 1 .113-.01l8.052 4.648a7.498 7.498 0 0 1-1.158 13.528v-9.476a1.293 1.293 0 0 0-.65-1.132zm3.35-5.043c-.059-.037-.162-.099-.236-.141l-7.965-4.6a1.298 1.298 0 0 0-1.308 0l-9.723 5.614v-3.888a.12.12 0 0 1 .048-.103l8.05-4.645a7.497 7.497 0 0 1 11.135 7.763zm-21.063 6.929l-3.367-1.944a.12.12 0 0 1-.065-.092v-9.299a7.497 7.497 0 0 1 12.293-5.756 6.94 6.94 0 0 0-.236.134l-7.965 4.6a1.294 1.294 0 0 0-.654 1.132l-.006 11.225zm1.829-3.943l4.33-2.501 4.332 2.5v5l-4.331 2.5-4.331-2.5V18z" stroke="currentColor" fill="currentColor"/>
+	</svg>
+    <p>An expedition through a maze of websites and papers, a bizarre assortment and some Google-translated from the Japanese, I stumbled upon a peculiar project called MMLIB.</p>
+</blockquote>
+
+<p><a href="https://github.com/plasklab/mmlib">mmlib</a> provides a Promela model that emulates the Total Store Ordering (TSO) and the Partial Store Ordering (PSO) memory models. Those models are formalized mathematical definitions of common CPU memory models, e.g. the <a href="https://www.cl.cam.ac.uk/~pes20/weakmemory/cacm.pdf">TSO</a> model essentially emulates memory access ordering guarantees that are akin to x86 CPUs.</p>
+<p>Let&rsquo;s try to write Promela code to simulate our original buggy triple buffer implementation:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-c" data-lang="c"><span style="display:flex;"><span><span style="color:#75715e">// Setup mmlib
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#define PROCSIZE           2        </span><span style="color:#75715e">// number of threads
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#define VARSIZE            7        </span><span style="color:#75715e">// number of variables
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#define BUFFSIZE           16       </span><span style="color:#75715e">// max queue size for reads
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#include</span> <span style="color:#75715e">&#34;mmlib/library/tso.h&#34;  // use TSO model, and apply above defines</span><span style="color:#75715e">
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Variables indices
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#75715e">#define front_buffer_ptr   0
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define back_buffer_ptr    1
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define middle_buffer_ptr  2
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define buffer0            3
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define buffer1            4
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define buffer2            5
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e">#define dirty              6
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">#define max_number         25
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Atomic swap (emulates std::atomic_exchange)
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span><span style="color:#66d9ef">inline</span> <span style="color:#a6e22e">ATOMIC_EXCHANGE</span>(obj, desired) {
+</span></span><span style="display:flex;"><span>    atomic {
+</span></span><span style="display:flex;"><span>        prev <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(obj);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">WRITE</span>(obj, desired);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">FENCE</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#66d9ef">inline</span> <span style="color:#a6e22e">SWAP_BUFFERS</span>(middle_buffer, other_buffer) {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> prev;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> other_buffer_ptr <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(other_buffer);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">ATOMIC_EXCHANGE</span>(middle_buffer, other_buffer_ptr);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">WRITE</span>(other_buffer, prev);
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>proctype <span style="color:#a6e22e">Producer</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> value <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">::</span> value <span style="color:#f92672">&gt;</span> max_number <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">::</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">-&gt;</span>
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> value <span style="color:#f92672">+</span> <span style="color:#ae81ff">1</span>;
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> write_buffer <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(back_buffer_ptr);
+</span></span><span style="display:flex;"><span>        
+</span></span><span style="display:flex;"><span>        <span style="color:#75715e">// Dispatch those writes into labels so that
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// we can easily verify the mutual exclusivity of reads and writes
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#75715e">// in the never{} clause.
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> write_buffer <span style="color:#f92672">==</span> buffer0 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> write0;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> write_buffer <span style="color:#f92672">==</span> buffer1 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> write1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> write_buffer <span style="color:#f92672">==</span> buffer2 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> write2;
+</span></span><span style="display:flex;"><span>        fi;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>write0:
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">WRITE</span>(buffer0, value); <span style="color:#66d9ef">goto</span> commit;
+</span></span><span style="display:flex;"><span>write1:
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">WRITE</span>(buffer1, value); <span style="color:#66d9ef">goto</span> commit;
+</span></span><span style="display:flex;"><span>write2:
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">WRITE</span>(buffer2, value); <span style="color:#66d9ef">goto</span> commit;
+</span></span><span style="display:flex;"><span>commit:
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">SWAP_BUFFERS</span>(middle_buffer_ptr, back_buffer_ptr);
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">WRITE</span>(dirty, <span style="color:#ae81ff">1</span>);
+</span></span><span style="display:flex;"><span>    od;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>proctype <span style="color:#a6e22e">Consumer</span>() {
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">int</span> value <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>, prev_value <span style="color:#f92672">=</span> <span style="color:#ae81ff">0</span>;
+</span></span><span style="display:flex;"><span>    <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">::</span> value <span style="color:#f92672">==</span> max_number <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">break</span>
+</span></span><span style="display:flex;"><span>    <span style="color:#f92672">::</span> <span style="color:#66d9ef">else</span> <span style="color:#f92672">-&gt;</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> <span style="color:#a6e22e">READ</span>(dirty) <span style="color:#f92672">==</span> <span style="color:#ae81ff">1</span> <span style="color:#f92672">-&gt;</span> 
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">SWAP_BUFFERS</span>(middle_buffer_ptr, front_buffer_ptr);
+</span></span><span style="display:flex;"><span>            <span style="color:#a6e22e">WRITE</span>(dirty, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> <span style="color:#66d9ef">else</span>
+</span></span><span style="display:flex;"><span>        fi;
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">int</span> read_buffer <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(front_buffer_ptr);
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">if</span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> read_buffer <span style="color:#f92672">==</span> buffer0 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> read0;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> read_buffer <span style="color:#f92672">==</span> buffer1 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> read1;
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> read_buffer <span style="color:#f92672">==</span> buffer2 <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> read2;
+</span></span><span style="display:flex;"><span>        fi;
+</span></span><span style="display:flex;"><span>read0:
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(buffer0); <span style="color:#66d9ef">goto</span> check_order;
+</span></span><span style="display:flex;"><span>read1:
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(buffer1); <span style="color:#66d9ef">goto</span> check_order;
+</span></span><span style="display:flex;"><span>read2:
+</span></span><span style="display:flex;"><span>        value <span style="color:#f92672">=</span> <span style="color:#a6e22e">READ</span>(buffer2); <span style="color:#66d9ef">goto</span> check_order;
+</span></span><span style="display:flex;"><span>check_order:
+</span></span><span style="display:flex;"><span>        <span style="color:#a6e22e">assert</span>(value <span style="color:#f92672">&gt;=</span> prev_value);
+</span></span><span style="display:flex;"><span>        prev_value <span style="color:#f92672">=</span> value;
+</span></span><span style="display:flex;"><span>    od;
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Setup producer and consumer and shared buffers
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>init {
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">INIT</span>(front_buffer_ptr,  buffer0);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">INIT</span>(back_buffer_ptr,   buffer1);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">INIT</span>(middle_buffer_ptr, buffer2);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">INIT</span>(buffer0, <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>    <span style="color:#a6e22e">INIT</span>(dirty,   <span style="color:#ae81ff">0</span>);
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>    atomic {
+</span></span><span style="display:flex;"><span>        run <span style="color:#a6e22e">Producer</span>();
+</span></span><span style="display:flex;"><span>        run <span style="color:#a6e22e">Consumer</span>();
+</span></span><span style="display:flex;"><span>    }
+</span></span><span style="display:flex;"><span>}
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span><span style="color:#75715e">// Check system-wide invariants that we expect to always hold
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>never  {
+</span></span><span style="display:flex;"><span>T0_init:
+</span></span><span style="display:flex;"><span>        <span style="color:#66d9ef">do</span>
+</span></span><span style="display:flex;"><span>    	<span style="color:#75715e">// We expect producer and consumer to never write and read from the same buffer concurrently
+</span></span></span><span style="display:flex;"><span><span style="color:#75715e"></span>        <span style="color:#f92672">::</span> atomic { (Producer<span style="color:#960050;background-color:#1e0010">@</span>write0 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read0) <span style="color:#f92672">-&gt;</span> <span style="color:#a6e22e">assert</span>(<span style="color:#f92672">!</span>(Producer<span style="color:#960050;background-color:#1e0010">@</span>write0 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read0)) }
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> atomic { (Producer<span style="color:#960050;background-color:#1e0010">@</span>write1 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read1) <span style="color:#f92672">-&gt;</span> <span style="color:#a6e22e">assert</span>(<span style="color:#f92672">!</span>(Producer<span style="color:#960050;background-color:#1e0010">@</span>write1 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read1)) }
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> atomic { (Producer<span style="color:#960050;background-color:#1e0010">@</span>write2 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read2) <span style="color:#f92672">-&gt;</span> <span style="color:#a6e22e">assert</span>(<span style="color:#f92672">!</span>(Producer<span style="color:#960050;background-color:#1e0010">@</span>write2 <span style="color:#f92672">&amp;&amp;</span> Consumer<span style="color:#960050;background-color:#1e0010">@</span>read2)) }
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>        <span style="color:#f92672">::</span> (<span style="color:#ae81ff">1</span>) <span style="color:#f92672">-&gt;</span> <span style="color:#66d9ef">goto</span> T0_init
+</span></span><span style="display:flex;"><span>        od;
+</span></span><span style="display:flex;"><span>accept_all:
+</span></span><span style="display:flex;"><span>    skip;
+</span></span><span style="display:flex;"><span>}
+</span></span></code></pre></div><p>As expected, running Spin revealed the same bug as Relacy and C11Tester:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>brilliantsugar $ spin -run -t trio.bug.pml 
+</span></span><span style="display:flex;"><span>pan:1: assertion violated <span style="color:#f92672">(</span>value&gt;<span style="color:#f92672">=</span>prev_value<span style="color:#f92672">)</span> <span style="color:#f92672">(</span>at depth 3383<span style="color:#f92672">)</span>
+</span></span><span style="display:flex;"><span>pan: wrote trio.bug.pml.trail
+</span></span><span style="display:flex;"><span>
+</span></span><span style="display:flex;"><span>... skipped ...
+</span></span></code></pre></div><p>As well as other tools, Spin provides a trace of states that led to the assertion:</p>
+<div class="highlight"><pre tabindex="0" style="color:#f8f8f2;background-color:#272822;-moz-tab-size:4;-o-tab-size:4;tab-size:4;"><code class="language-sh" data-lang="sh"><span style="display:flex;"><span>brilliantsugar $ spin -t -p trio.bug.pml
+</span></span><span style="display:flex;"><span>...skipped...
+</span></span><span style="display:flex;"><span>378:   proc  <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>Consumer:1<span style="color:#f92672">)</span> trio.bug.pml:76 <span style="color:#f92672">(</span>state 56<span style="color:#f92672">)</span> <span style="color:#f92672">[</span>read_buffer <span style="color:#f92672">=</span> <span style="color:#f92672">(</span> <span style="color:#f92672">((</span>counter<span style="color:#f92672">[((</span>_pid*7<span style="color:#f92672">)</span>+0<span style="color:#f92672">)]==</span>0<span style="color:#f92672">))</span> -&gt; <span style="color:#f92672">(</span>shared_memory<span style="color:#f92672">[</span>0<span style="color:#f92672">])</span> : <span style="color:#f92672">(</span>buffer<span style="color:#f92672">[((</span>_pid*7<span style="color:#f92672">)</span>+0<span style="color:#f92672">)])</span> <span style="color:#f92672">)]</span>
+</span></span><span style="display:flex;"><span>3380:   proc  <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>Consumer:1<span style="color:#f92672">)</span> trio.bug.pml:79 <span style="color:#f92672">(</span>state 61<span style="color:#f92672">)</span> <span style="color:#f92672">[((</span>read_buffer<span style="color:#f92672">==</span>5<span style="color:#f92672">))]</span>
+</span></span><span style="display:flex;"><span>3382:   proc  <span style="color:#ae81ff">3</span> <span style="color:#f92672">(</span>Consumer:1<span style="color:#f92672">)</span> trio.bug.pml:86 <span style="color:#f92672">(</span>state 69<span style="color:#f92672">)</span> <span style="color:#f92672">[</span>value <span style="color:#f92672">=</span> <span style="color:#f92672">(</span> <span style="color:#f92672">((</span>counter<span style="color:#f92672">[((</span>_pid*7<span style="color:#f92672">)</span>+5<span style="color:#f92672">)]==</span>0<span style="color:#f92672">))</span> -&gt; <span style="color:#f92672">(</span>shared_memory<span style="color:#f92672">[</span>5<span style="color:#f92672">])</span> : <span style="color:#f92672">(</span>buffer<span style="color:#f92672">[((</span>_pid*7<span style="color:#f92672">)</span>+5<span style="color:#f92672">)])</span> <span style="color:#f92672">)]</span>
+</span></span><span style="display:flex;"><span>spin: trio.bug.pml:88, Error: assertion violated
+</span></span></code></pre></div><hr>
+<p>Having explored Relacy, C11Tester, and Spin for testing my lock-free C++ code, I ultimately settled upon Relacy as my tool of choice. The instrumentation required for Relacy is trivial, the output it provides is clean and easy to follow. It works with all major compilers effortlessly despite its age. C11Tester seems good but requires too much work to get it into a usable shape.
+Spin and other formal verification tools require modeling CPU memory access ordering in exotic languages. Then you need to model your own data structures. During the process of modeling and translating the model to C++, another juncture emerges where bugs may subtly slip into the code.</p>
+<p>All code is available <a href="https://github.com/brilliantsugar/trio">here</a></p>
+</div>
+    </article>
+  </main>
+
+      </div>
+      <footer>
+  <hr />
+  
+    <p id="social">
+      
+        
+        <a href="mailto:brilliantsugar@skiff.com">brilliantsugar@skiff.com</a>
+      
+    </p>
+  
+  <p class="copyright">
+    Copyright © 2024
+    <a href="https://brilliantsugar.github.io/"><strong>brilliantsugar</strong></a>.
+    This work is licensed under the
+    <a href="http://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a> license.
+  </p>
+</footer>
+
+    </div>
+  </body>
+</html>
