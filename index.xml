@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>brilliantsugar</title>
+    <link>https://brilliantsugar.github.io/</link>
+    <description>Recent content on brilliantsugar</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Sun, 14 Jan 2024 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://brilliantsugar.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>How I Learned to Stop Worrying and Love Juggling C&#43;&#43; Atomics</title>
+      <link>https://brilliantsugar.github.io/posts/how-i-learned-to-stop-worrying-and-love-juggling-c&#43;&#43;-atomics/</link>
+      <pubDate>Sun, 14 Jan 2024 00:00:00 +0000</pubDate>
+      <guid>https://brilliantsugar.github.io/posts/how-i-learned-to-stop-worrying-and-love-juggling-c&#43;&#43;-atomics/</guid>
+      <description>As most C++ programmers are aware, courtesy of Herb Sutter, programming lock-free data structures is akin to juggling razor blades. Reasoning about concurrent programs is already complex enough but modern CPU memory models are so complicated that they manage to make it even harder. The prevailing suggestion you often come across is to steer clear of lock-free programming entirely.&#xA;Yet, there exists a shadowy realm where such recklessness is not just an option; it&#39;s a dire necessity.</description>
+    </item>
+  </channel>
+</rss>
